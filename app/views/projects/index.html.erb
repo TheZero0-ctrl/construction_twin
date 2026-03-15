@@ -1,0 +1,19 @@
+<% content_for :title, "Projects" %>
+
+<section class="space-y-8">
+  <div id="projects" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <% @projects.each do |project| %>
+      <%= render project %>
+    <% end %>
+  </div>
+
+  <% if @projects.empty? %>
+    <div class="rounded-3xl border border-dashed border-stone-300 bg-stone-50 px-6 py-12 text-center">
+      <h2 class="text-xl font-semibold text-stone-900">No projects yet</h2>
+      <p class="mt-2 text-sm text-stone-600">Create your first project to start tracking your construction work.</p>
+      <div class="mt-6">
+        <%= link_to "Create project", new_project_path, class: "inline-flex items-center justify-center rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-700" %>
+      </div>
+    </div>
+  <% end %>
+</section>

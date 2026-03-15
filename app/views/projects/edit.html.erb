@@ -1,0 +1,14 @@
+<% content_for :title, "Editing project" %>
+
+<section class="space-y-6">
+  <div class="space-y-3">
+    <div class="flex flex-wrap items-center gap-3 text-sm font-medium text-stone-500">
+      <%= link_to @project.name, @project, class: "transition hover:text-stone-900" %>
+    </div>
+    <div class="space-y-2">
+      <h1 class="text-3xl font-semibold tracking-tight text-stone-950 sm:text-4xl">Update project details</h1>
+    </div>
+  </div>
+
+  <%= render "form", project: @project %>
+</section>

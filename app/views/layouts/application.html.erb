@@ -23,7 +23,32 @@
     <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
   </head>
 
-  <body>
-    <%= yield %>
+  <body class="min-h-screen bg-stone-100 text-stone-900 antialiased">
+    <div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.9),_rgba(245,243,240,0.96)_45%,_rgba(231,229,228,1)_100%)]">
+      <header class="border-b border-stone-200/80 bg-white/80 backdrop-blur">
+        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div>
+            <%= link_to root_path, class: "text-lg font-semibold tracking-tight text-stone-950" do %>
+              Open Construction Twin
+            <% end %>
+          </div>
+
+          <nav class="flex items-center gap-3 text-sm font-medium text-stone-600">
+            <%= link_to "Projects", projects_path, class: "rounded-full px-3 py-2 transition hover:bg-stone-100 hover:text-stone-950" %>
+            <%= link_to "New project", new_project_path, class: "rounded-full bg-stone-900 px-4 py-2 text-white transition hover:bg-stone-700" %>
+          </nav>
+        </div>
+      </header>
+
+      <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+        <% if notice.present? %>
+          <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-sm">
+            <%= notice %>
+          </div>
+        <% end %>
+
+        <%= yield %>
+      </main>
+    </div>
   </body>
 </html>

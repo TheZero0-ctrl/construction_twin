@@ -1,0 +1,16 @@
+<article id="<%= dom_id project %>" class="flex h-full flex-col rounded-3xl border border-stone-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+  <div class="flex items-start justify-between gap-4">
+    <div class="space-y-2">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Project</p>
+      <h2 class="text-xl font-semibold tracking-tight text-stone-950"><%= project.name.presence || "Untitled project" %></h2>
+    </div>
+    <span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700"><%= project.location.presence || "Location pending" %></span>
+  </div>
+
+  <p class="mt-4 flex-1 text-sm leading-6 text-stone-600"><%= project.description.presence || "Add a short summary to describe the site, scope, or current status." %></p>
+
+  <div class="mt-6 flex items-center justify-between gap-3 border-t border-stone-100 pt-4">
+    <div class="text-xs text-stone-500">Updated <%= time_ago_in_words(project.updated_at) %> ago</div>
+    <%= link_to "View details", project_path(project), class: "inline-flex items-center rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:border-stone-900 hover:text-stone-950" %>
+  </div>
+</article>
