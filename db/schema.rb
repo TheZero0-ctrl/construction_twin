@@ -45,8 +45,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_16_110744) do
   create_table "datasets", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "data_type", null: false
+    t.jsonb "info", default: {}
     t.bigint "project_id", null: false
-    t.string "status", default: "processing"
+    t.string "status", default: "uploaded"
     t.datetime "updated_at", null: false
     t.index ["project_id"], name: "index_datasets_on_project_id"
     t.index ["status"], name: "index_datasets_on_status"

@@ -8,6 +8,8 @@ class ProjectsController < ApplicationController
   end
 
   def show
+    @datasets = @project.datasets.with_attached_file.order(created_at: :desc)
+    @dataset = @project.datasets.build
   end
 
   def new
