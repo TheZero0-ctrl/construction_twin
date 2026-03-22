@@ -56,6 +56,9 @@ GEM
       activemodel (= 8.1.2)
       activesupport (= 8.1.2)
       timeout (>= 0.4.0)
+    activerecord-postgis-adapter (11.1.1)
+      activerecord (~> 8.1.0)
+      rgeo-activerecord (~> 8.1.0)
     activestorage (8.1.2)
       actionpack (= 8.1.2)
       activejob (= 8.1.2)
@@ -276,6 +279,10 @@ GEM
     regexp_parser (2.11.3)
     reline (0.6.3)
       io-console (~> 0.5)
+    rgeo (3.1.0)
+    rgeo-activerecord (8.1.0)
+      activerecord (>= 8.1, < 8.2)
+      rgeo (>= 3.0)
     rubocop (1.85.1)
       json (~> 2.3)
       language_server-protocol (~> 3.17.0.2)
@@ -309,6 +316,7 @@ GEM
     ruby-vips (2.3.0)
       ffi (~> 1.12)
       logger
+    rubyzip (3.2.2)
     securerandom (0.4.1)
     solid_cable (3.0.12)
       actioncable (>= 7.2)
@@ -381,6 +389,7 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
+  activerecord-postgis-adapter
   bootsnap
   brakeman
   bundler-audit
@@ -395,7 +404,9 @@ DEPENDENCIES
   pry
   puma (>= 5.0)
   rails (~> 8.1.2)
+  rgeo
   rubocop-rails-omakase
+  rubyzip
   solid_cable
   solid_cache
   solid_queue

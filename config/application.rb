@@ -38,5 +38,8 @@ module OpenConstructionTwin
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    # PostGIS features are represented best with SQL schema dumps.
+    config.active_record.schema_format = :sql
   end
 end

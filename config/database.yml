@@ -21,8 +21,10 @@ default: &default
 
 
 development:
-  <<: *default
-  database: open_construction_twin_development
+  primary: &primary_development
+    <<: *default
+    adapter: postgis
+    database: open_construction_twin_development
 
   # The specified database role being used to connect to PostgreSQL.
   # To create additional roles in PostgreSQL see `$ createuser --help`.
@@ -50,12 +52,18 @@ development:
   #   log, notice, warning, error, fatal, and panic
   # Defaults to warning.
   #min_messages: notice
+  queue:
+    <<: *primary_development
+    database: open_construction_twin_development_queue
+    migrations_paths: db/queue_migrate
+
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
 # Do not set this db to the same as development or production.
 test:
   <<: *default
+  adapter: postgis
   database: open_construction_twin_test
 
 # As with config/credentials.yml, you never want to store sensitive information,
@@ -87,6 +95,7 @@ test:
 production:
   primary: &primary_production
     <<: *default
+    adapter: postgis
     database: open_construction_twin_production
     username: open_construction_twin
     password: <%= ENV["OPEN_CONSTRUCTION_TWIN_DATABASE_PASSWORD"] %>

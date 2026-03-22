@@ -1,24 +1,29 @@
-# README
+# Open Construction Twin
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+## Setup
 
-Things you may want to cover:
+1. Install gem dependencies:
 
-* Ruby version
+```bash
+bundle install
+```
 
-* System dependencies
+2. Ensure PostGIS is installed in your PostgreSQL instance.
 
-* Configuration
+3. Create and migrate databases:
 
-* Database creation
+```bash
+bin/rails db:prepare
+```
 
-* Database initialization
+4. Start development processes:
 
-* How to run the test suite
+```bash
+bin/dev
+```
 
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+`bin/dev` starts:
+- Rails web server
+- Solid Queue worker (`bin/jobs start`)
+- JavaScript watcher
+- Tailwind/CSS watcher

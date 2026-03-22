@@ -6,6 +6,8 @@ gem "rails", "~> 8.1.2"
 gem "propshaft"
 # Use postgresql as the database for Active Record
 gem "pg", "~> 1.1"
+gem "activerecord-postgis-adapter"
+gem "rgeo"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 5.0"
 # Bundle and transpile JavaScript [https://github.com/rails/jsbundling-rails]
@@ -43,6 +45,7 @@ gem "thruster", require: false
 gem "image_processing", "~> 1.2"
 
 gem "pry"
+gem "rubyzip"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem

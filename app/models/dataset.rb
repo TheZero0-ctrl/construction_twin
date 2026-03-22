@@ -6,6 +6,8 @@ class Dataset < ApplicationRecord
   }.freeze
 
   belongs_to :project
+  has_many :buildings, dependent: :destroy
+  has_many :map_layers, dependent: :destroy
   has_one_attached :file
 
   enum :status, %w[ uploaded processing completed failed ].index_by(&:itself)
