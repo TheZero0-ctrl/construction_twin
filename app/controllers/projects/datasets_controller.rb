@@ -8,8 +8,8 @@ class Projects::DatasetsController < ApplicationController
     @dataset = @project.datasets.build(data_type: dataset_params[:data_type], status: :uploaded)
 
     unless upload.present?
-      @dataset.errors.add(:file, "must be attached")
-      flash.now[:alert] = "Please upload a zipped shapefile."
+      @dataset.errors.add(:file, :must_be_attached)
+      flash.now[:alert] = t(".missing_file")
       return render_create_change(status: :unprocessable_entity)
     end
 
@@ -17,10 +17,10 @@ class Projects::DatasetsController < ApplicationController
 
     if @dataset.save
       ProcessDatasetJob.perform_later(@dataset)
-      flash.now[:notice] = "Dataset was successfully uploaded. Processing has started."
+      flash.now[:notice] = t(".created")
       render_create_change
     else
-      flash.now[:alert] = "We couldn't upload that dataset. Please review the form and try again."
+      flash.now[:alert] = t(".create_failed")
       render_create_change(status: :unprocessable_entity)
     end
   end
@@ -28,7 +28,7 @@ class Projects::DatasetsController < ApplicationController
   private
 
   def datasets_scope
-    @project.datasets.with_attached_file.order(created_at: :desc)
+    @project.datasets.recently_uploaded
   end
 
   def set_project

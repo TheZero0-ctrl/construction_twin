@@ -10,6 +10,8 @@ class Dataset < ApplicationRecord
   has_many :map_layers, dependent: :destroy
   has_one_attached :file
 
+  scope :recently_uploaded, -> { with_attached_file.order(created_at: :desc) }
+
   enum :status, %w[ uploaded processing completed failed ].index_by(&:itself)
   enum :data_type, { shapefile: "shapefile" }
 
@@ -33,7 +35,7 @@ class Dataset < ApplicationRecord
   private
 
   def file_must_be_attached
-    errors.add(:file, "must be attached") unless file.attached?
+    errors.add(:file, :must_be_attached) unless file.attached?
   end
 
   def file_format_matches_data_type
@@ -41,7 +43,7 @@ class Dataset < ApplicationRecord
     return unless shapefile?
     return if file_extension == "zip"
 
-    errors.add(:file, "must be uploaded as a .zip archive containing the shapefile bundle")
+    errors.add(:file, :invalid_shapefile_archive)
   end
 
   def file_extension

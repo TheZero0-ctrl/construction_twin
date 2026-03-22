@@ -29,3 +29,23 @@
 
 en:
   hello: "Hello world"
+  activerecord:
+    errors:
+      models:
+        dataset:
+          attributes:
+            file:
+              must_be_attached: "must be attached"
+              invalid_shapefile_archive: "must be uploaded as a .zip archive containing the shapefile bundle"
+  projects:
+    create:
+      created: "Project was successfully created."
+    update:
+      updated: "Project was successfully updated."
+    destroy:
+      destroyed: "Project was successfully destroyed."
+    datasets:
+      create:
+        created: "Dataset was successfully uploaded. Processing has started."
+        create_failed: "We couldn't upload that dataset. Please review the form and try again."
+        missing_file: "Please upload a zipped shapefile."

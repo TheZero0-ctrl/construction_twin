@@ -8,7 +8,7 @@ class ProjectsController < ApplicationController
   end
 
   def show
-    @datasets = @project.datasets.with_attached_file.order(created_at: :desc)
+    @datasets = @project.datasets.recently_uploaded
     @dataset = @project.datasets.build
   end
 
@@ -24,7 +24,7 @@ class ProjectsController < ApplicationController
 
     respond_to do |format|
       if @project.save
-        format.html { redirect_to @project, notice: "Project was successfully created." }
+        format.html { redirect_to @project, notice: t(".created") }
         format.json { render :show, status: :created, location: @project }
       else
         format.html { render :new, status: :unprocessable_entity }
@@ -36,7 +36,7 @@ class ProjectsController < ApplicationController
   def update
     respond_to do |format|
       if @project.update(project_params)
-        format.html { redirect_to @project, notice: "Project was successfully updated.", status: :see_other }
+        format.html { redirect_to @project, notice: t(".updated"), status: :see_other }
         format.json { render :show, status: :ok, location: @project }
       else
         format.html { render :edit, status: :unprocessable_entity }
@@ -49,7 +49,7 @@ class ProjectsController < ApplicationController
     @project.destroy!
 
     respond_to do |format|
-      format.html { redirect_to projects_path, notice: "Project was successfully destroyed.", status: :see_other }
+      format.html { redirect_to projects_path, notice: t(".destroyed"), status: :see_other }
       format.json { head :no_content }
     end
   end

@@ -15,19 +15,9 @@
           <article id="<%= dom_id(dataset) %>" class="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 sm:p-5">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div class="space-y-2">
-                <% status_classes = case dataset.status
-                when "completed"
-                  "bg-emerald-100 text-emerald-800"
-                when "failed"
-                  "bg-rose-100 text-rose-800"
-                when "processing"
-                  "bg-amber-100 text-amber-800"
-                else
-                  "bg-sky-100 text-sky-800"
-                end %>
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="rounded-full bg-stone-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white"><%= dataset.data_type.humanize %></span>
-                  <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <%= status_classes %>"><%= dataset.status.humanize %></span>
+                  <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <%= dataset_status_badge_classes(dataset.status) %>"><%= dataset.status.humanize %></span>
                 </div>
                 <h3 class="text-base font-semibold text-stone-950"><%= dataset.display_name %></h3>
                 <p class="text-sm text-stone-600">
