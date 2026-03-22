@@ -1,0 +1,29 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "9448576731f10625de6b7f1e8a11af942a89100e690be26fc620059abed8a17b",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/jobs/process_dataset_job.rb",
+      "line": 124,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "ActiveRecord::Base.connection.exec_insert(\"INSERT INTO buildings (project_id, dataset_id, name, height, geom, created_at, updated_at)\\nSELECT\\n  $1,\\n  $2,\\n  #{column_expression(staging_table_name(dataset), [\"name\", \"Name\", \"NAME\"])},\\n  #{column_expression(staging_table_name(dataset), [\"height\", \"Height\", \"HEIGHT\", \"elev\", \"ELEV\", \"z\", \"Z\"], :cast => \"numeric\")},\\n  ST_Multi(geom)::geometry(MultiPolygon, 4326),\\n  $3,\\n  $4\\nFROM #{ActiveRecord::Base.connection.quote_table_name(staging_table_name(dataset))}\\nWHERE geom IS NOT NULL\\nAND ST_IsValid(geom)\\nAND GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON')\\n\", \"Insert buildings from staged shapefile\", [ActiveRecord::Relation::QueryAttribute.new(\"project_id\", dataset.project_id.to_i, ActiveRecord::Type::Integer.new), ActiveRecord::Relation::QueryAttribute.new(\"dataset_id\", dataset.id.to_i, ActiveRecord::Type::Integer.new), ActiveRecord::Relation::QueryAttribute.new(\"created_at\", Time.current, ActiveRecord::Type::DateTime.new), ActiveRecord::Relation::QueryAttribute.new(\"updated_at\", Time.current, ActiveRecord::Type::DateTime.new)])",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "ProcessDatasetJob",
+        "method": "move_staged_buildings!"
+      },
+      "user_input": "column_expression(staging_table_name(dataset), [\"name\", \"Name\", \"NAME\"])",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "False positive: dynamic identifiers come from trusted DB metadata and are quoted; runtime values are bound parameters."
+    }
+  ],
+  "updated": "2026-03-22 19:00:01 +0545",
+  "brakeman_version": "8.0.4"
+}

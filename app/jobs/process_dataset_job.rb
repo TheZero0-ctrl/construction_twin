@@ -48,7 +48,7 @@ class ProcessDatasetJob < ApplicationJob
     raise "Failed to unpack dataset archive: #{extraction_result[:error]}" unless extraction_result[:success]
 
     shapefile_path = locate_shapefile!(extract_dir)
-    import_to_staging!(shapefile_path, import_table_name, connection_string)
+    import_to_staging!(shapefile_path, import_table_name, connection_config)
 
     imported_count = move_staged_buildings!(dataset)
     ensure_buildings_layer!(dataset, shapefile_path)
@@ -77,13 +77,14 @@ class ProcessDatasetJob < ApplicationJob
     end
   end
 
-  def import_to_staging!(shapefile_path, staging_table, pg_connection_string)
+  def import_to_staging!(shapefile_path, staging_table, pg_config)
     drop_staging_table!(staging_table)
 
     stdout, stderr, status = Open3.capture3(
+      pg_env(pg_config),
       "ogr2ogr",
       "-f", "PostgreSQL",
-      "PG:#{pg_connection_string}",
+      "PG:",
       shapefile_path,
       "-nln", staging_table,
       "-lco", "GEOMETRY_NAME=geom",
@@ -102,24 +103,30 @@ class ProcessDatasetJob < ApplicationJob
     height_expr = column_expression(table, %w[height Height HEIGHT elev ELEV z Z], cast: "numeric")
 
     connection = ActiveRecord::Base.connection
-    now = connection.quote(Time.current)
+    now = Time.current
     insert_sql = <<~SQL
       INSERT INTO buildings (project_id, dataset_id, name, height, geom, created_at, updated_at)
       SELECT
-        #{dataset.project_id.to_i},
-        #{dataset.id.to_i},
+        $1,
+        $2,
         #{name_expr},
         #{height_expr},
         ST_Multi(geom)::geometry(MultiPolygon, 4326),
-        #{now},
-        #{now}
+        $3,
+        $4
       FROM #{connection.quote_table_name(table)}
       WHERE geom IS NOT NULL
       AND ST_IsValid(geom)
       AND GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON')
     SQL
 
-    connection.execute(insert_sql)
+    # brakeman:ignore[SQL] Safe: table/columns are constrained and quoted, values are bound parameters.
+    connection.exec_insert(insert_sql, "Insert buildings from staged shapefile", [
+      ActiveRecord::Relation::QueryAttribute.new("project_id", dataset.project_id.to_i, ActiveRecord::Type::Integer.new),
+      ActiveRecord::Relation::QueryAttribute.new("dataset_id", dataset.id.to_i, ActiveRecord::Type::Integer.new),
+      ActiveRecord::Relation::QueryAttribute.new("created_at", now, ActiveRecord::Type::DateTime.new),
+      ActiveRecord::Relation::QueryAttribute.new("updated_at", now, ActiveRecord::Type::DateTime.new)
+    ])
     dataset.buildings.count
   end
 
@@ -151,23 +158,24 @@ class ProcessDatasetJob < ApplicationJob
     "dataset_import_#{dataset.id}"
   end
 
-  def connection_string
+  def connection_config
     config = ActiveRecord::Base.connection_db_config.configuration_hash
-    parts = {
+    {
       host: config[:host].presence || ENV.fetch("PGHOST", "localhost"),
       port: config[:port].presence || ENV.fetch("PGPORT", "5432"),
       dbname: config[:database],
       user: config[:username].presence || ENV["PGUSER"],
       password: config[:password].presence || ENV["PGPASSWORD"]
-    }.compact
-
-    parts.map { |key, value| "#{key}=#{escape_pg_value(value)}" }.join(" ")
+    }.compact.transform_values(&:to_s)
   end
 
-  def escape_pg_value(value)
-    string = value.to_s
-    return string unless string.match?(/[\s'\\]/)
-
-    "'#{string.gsub("\\", "\\\\").gsub("'", "\\\\'")}'"
+  def pg_env(config)
+    {
+      "PGHOST" => config.fetch(:host, "localhost"),
+      "PGPORT" => config.fetch(:port, "5432"),
+      "PGDATABASE" => config.fetch(:dbname, ""),
+      "PGUSER" => config[:user],
+      "PGPASSWORD" => config[:password]
+    }.compact
   end
 end
