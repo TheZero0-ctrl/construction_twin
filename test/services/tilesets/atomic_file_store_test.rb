@@ -36,5 +36,11 @@ module Tilesets
       assert_equal "staged", File.read(destination)
       assert_not File.exist?(File.join(@root_dir, staged_path))
     end
+
+    test "rejects paths outside root_path" do
+      assert_raises(ArgumentError) do
+        @store.write(relative_path: "../outside.json", content: "{}")
+      end
+    end
   end
 end

@@ -33,12 +33,24 @@ module Tilesets
       destination
     end
 
+    def absolute_path_for(relative_path)
+      absolute_path(relative_path)
+    end
+
     private
 
     attr_reader :root_path
 
     def absolute_path(relative_path)
-      File.expand_path(relative_path.to_s, root_path)
+      expanded_path = File.expand_path(relative_path.to_s, root_path)
+      return expanded_path if within_root?(expanded_path)
+
+      raise ArgumentError, "path must be within root_path"
+    end
+
+    def within_root?(expanded_path)
+      expanded_root = File.expand_path(root_path)
+      expanded_path == expanded_root || expanded_path.start_with?("#{expanded_root}#{File::SEPARATOR}")
     end
   end
 end
