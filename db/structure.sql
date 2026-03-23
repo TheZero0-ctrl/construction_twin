@@ -11,6 +11,13 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: ogr_system_tables; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA ogr_system_tables;
+
+
+--
 -- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -24,9 +31,65 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
 
 
+--
+-- Name: event_trigger_function_for_metadata(); Type: FUNCTION; Schema: ogr_system_tables; Owner: -
+--
+
+CREATE FUNCTION ogr_system_tables.event_trigger_function_for_metadata() RETURNS event_trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    obj record;
+BEGIN
+  IF has_schema_privilege('ogr_system_tables', 'USAGE') THEN
+   IF has_table_privilege('ogr_system_tables.metadata', 'DELETE') THEN
+    FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects()
+    LOOP
+        IF obj.object_type = 'table' THEN
+            DELETE FROM ogr_system_tables.metadata m WHERE m.schema_name = obj.schema_name AND m.table_name = obj.object_name;
+        END IF;
+    END LOOP;
+   END IF;
+  END IF;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: metadata; Type: TABLE; Schema: ogr_system_tables; Owner: -
+--
+
+CREATE TABLE ogr_system_tables.metadata (
+    id integer NOT NULL,
+    schema_name text NOT NULL,
+    table_name text NOT NULL,
+    metadata text
+);
+
+
+--
+-- Name: metadata_id_seq; Type: SEQUENCE; Schema: ogr_system_tables; Owner: -
+--
+
+CREATE SEQUENCE ogr_system_tables.metadata_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: metadata_id_seq; Type: SEQUENCE OWNED BY; Schema: ogr_system_tables; Owner: -
+--
+
+ALTER SEQUENCE ogr_system_tables.metadata_id_seq OWNED BY ogr_system_tables.metadata.id;
+
 
 --
 -- Name: active_storage_attachments; Type: TABLE; Schema: public; Owner: -
@@ -287,6 +350,99 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: tileset_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tileset_versions (
+    id bigint NOT NULL,
+    tileset_id bigint NOT NULL,
+    version integer NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    tile_count integer DEFAULT 0 NOT NULL,
+    manifest_path character varying,
+    published_at timestamp(6) without time zone,
+    error text,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    CONSTRAINT tileset_versions_tile_count_non_negative CHECK ((tile_count >= 0)),
+    CONSTRAINT tileset_versions_version_positive CHECK ((version > 0))
+);
+
+
+--
+-- Name: tileset_versions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.tileset_versions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: tileset_versions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.tileset_versions_id_seq OWNED BY public.tileset_versions.id;
+
+
+--
+-- Name: tilesets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tilesets (
+    id bigint NOT NULL,
+    project_id bigint NOT NULL,
+    dataset_id bigint,
+    layer_type character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    current_version integer,
+    latest_generated_version integer,
+    base_path character varying,
+    storage_backend character varying DEFAULT 'local'::character varying NOT NULL,
+    progress_total_tiles integer DEFAULT 0 NOT NULL,
+    progress_completed_tiles integer DEFAULT 0 NOT NULL,
+    started_at timestamp(6) without time zone,
+    finished_at timestamp(6) without time zone,
+    last_error text,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    map_layer_id bigint NOT NULL,
+    CONSTRAINT tilesets_progress_completed_lte_total CHECK ((progress_completed_tiles <= progress_total_tiles)),
+    CONSTRAINT tilesets_progress_completed_non_negative CHECK ((progress_completed_tiles >= 0)),
+    CONSTRAINT tilesets_progress_total_non_negative CHECK ((progress_total_tiles >= 0))
+);
+
+
+--
+-- Name: tilesets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.tilesets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: tilesets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.tilesets_id_seq OWNED BY public.tilesets.id;
+
+
+--
+-- Name: metadata id; Type: DEFAULT; Schema: ogr_system_tables; Owner: -
+--
+
+ALTER TABLE ONLY ogr_system_tables.metadata ALTER COLUMN id SET DEFAULT nextval('ogr_system_tables.metadata_id_seq'::regclass);
+
+
+--
 -- Name: active_storage_attachments id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -333,6 +489,28 @@ ALTER TABLE ONLY public.map_layers ALTER COLUMN id SET DEFAULT nextval('public.m
 --
 
 ALTER TABLE ONLY public.projects ALTER COLUMN id SET DEFAULT nextval('public.projects_id_seq'::regclass);
+
+
+--
+-- Name: tileset_versions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tileset_versions ALTER COLUMN id SET DEFAULT nextval('public.tileset_versions_id_seq'::regclass);
+
+
+--
+-- Name: tilesets id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tilesets ALTER COLUMN id SET DEFAULT nextval('public.tilesets_id_seq'::regclass);
+
+
+--
+-- Name: metadata metadata_schema_name_table_name_key; Type: CONSTRAINT; Schema: ogr_system_tables; Owner: -
+--
+
+ALTER TABLE ONLY ogr_system_tables.metadata
+    ADD CONSTRAINT metadata_schema_name_table_name_key UNIQUE (schema_name, table_name);
 
 
 --
@@ -405,6 +583,22 @@ ALTER TABLE ONLY public.projects
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: tileset_versions tileset_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tileset_versions
+    ADD CONSTRAINT tileset_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tilesets tilesets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tilesets
+    ADD CONSTRAINT tilesets_pkey PRIMARY KEY (id);
 
 
 --
@@ -492,6 +686,48 @@ CREATE INDEX index_map_layers_on_project_id ON public.map_layers USING btree (pr
 
 
 --
+-- Name: index_tileset_versions_on_tileset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_tileset_versions_on_tileset_id ON public.tileset_versions USING btree (tileset_id);
+
+
+--
+-- Name: index_tileset_versions_on_tileset_id_and_version; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_tileset_versions_on_tileset_id_and_version ON public.tileset_versions USING btree (tileset_id, version);
+
+
+--
+-- Name: index_tilesets_on_dataset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_tilesets_on_dataset_id ON public.tilesets USING btree (dataset_id);
+
+
+--
+-- Name: index_tilesets_on_map_layer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_tilesets_on_map_layer_id ON public.tilesets USING btree (map_layer_id);
+
+
+--
+-- Name: index_tilesets_on_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_tilesets_on_project_id ON public.tilesets USING btree (project_id);
+
+
+--
+-- Name: index_tilesets_on_project_id_and_layer_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_tilesets_on_project_id_and_layer_type ON public.tilesets USING btree (project_id, layer_type);
+
+
+--
 -- Name: map_layers fk_rails_04e4a6f46d; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -508,11 +744,27 @@ ALTER TABLE ONLY public.datasets
 
 
 --
+-- Name: tilesets fk_rails_45a07b0f33; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tilesets
+    ADD CONSTRAINT fk_rails_45a07b0f33 FOREIGN KEY (map_layer_id) REFERENCES public.map_layers(id);
+
+
+--
 -- Name: buildings fk_rails_48c8763d4f; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.buildings
     ADD CONSTRAINT fk_rails_48c8763d4f FOREIGN KEY (dataset_id) REFERENCES public.datasets(id);
+
+
+--
+-- Name: tilesets fk_rails_7625a23166; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tilesets
+    ADD CONSTRAINT fk_rails_7625a23166 FOREIGN KEY (project_id) REFERENCES public.projects(id);
 
 
 --
@@ -532,6 +784,22 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 
 --
+-- Name: tilesets fk_rails_9cc643b781; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tilesets
+    ADD CONSTRAINT fk_rails_9cc643b781 FOREIGN KEY (dataset_id) REFERENCES public.datasets(id);
+
+
+--
+-- Name: tileset_versions fk_rails_beeae6ab92; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tileset_versions
+    ADD CONSTRAINT fk_rails_beeae6ab92 FOREIGN KEY (tileset_id) REFERENCES public.tilesets(id);
+
+
+--
 -- Name: active_storage_attachments fk_rails_c3b3935057; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -548,12 +816,25 @@ ALTER TABLE ONLY public.buildings
 
 
 --
+-- Name: ogr_system_tables_event_trigger_for_metadata; Type: EVENT TRIGGER; Schema: -; Owner: -
+--
+
+CREATE EVENT TRIGGER ogr_system_tables_event_trigger_for_metadata ON sql_drop
+   EXECUTE FUNCTION ogr_system_tables.event_trigger_function_for_metadata();
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260323120400'),
+('20260323120300'),
+('20260323120200'),
+('20260323120100'),
+('20260323120000'),
 ('20260320110000'),
 ('20260318110100'),
 ('20260318110000'),

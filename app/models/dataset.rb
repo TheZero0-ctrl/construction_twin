@@ -8,11 +8,12 @@ class Dataset < ApplicationRecord
   belongs_to :project
   has_many :buildings, dependent: :destroy
   has_many :map_layers, dependent: :destroy
+  has_many :tilesets, dependent: :nullify
   has_one_attached :file
 
   scope :recently_uploaded, -> { with_attached_file.order(created_at: :desc) }
 
-  enum :status, %w[ uploaded processing completed failed ].index_by(&:itself)
+  enum :status, %w[uploaded processing completed failed].index_by(&:itself)
   enum :data_type, { shapefile: "shapefile" }
 
   validates :data_type, presence: true
