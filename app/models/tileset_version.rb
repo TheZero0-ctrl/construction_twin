@@ -19,8 +19,8 @@ class TilesetVersion < ApplicationRecord
     update!(status: :ready, tile_count: tile_count, manifest_path: manifest_path, error: nil)
   end
 
-  def mark_published!(published_at: Time.current)
-    update!(status: :published, published_at: published_at, error: nil)
+  def mark_published!(manifest_path:, published_at: Time.current)
+    update!(status: :published, manifest_path: manifest_path, published_at: published_at, error: nil)
   end
 
   def fail!(message:)

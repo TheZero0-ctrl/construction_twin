@@ -23,7 +23,7 @@ class PublishTilesetVersionJob < ApplicationJob
     ApplicationRecord.transaction do
       tileset.mark_publishing!
       store.move(from_relative_path: staging_manifest_relative_path, to_relative_path: published_manifest_relative_path)
-      tileset_version.mark_published!
+      tileset_version.mark_published!(manifest_path: published_manifest_relative_path)
       tileset.mark_ready!(version: version)
     end
   rescue StandardError => error

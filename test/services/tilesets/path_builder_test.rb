@@ -20,6 +20,11 @@ module Tilesets
       assert_equal "tilesets/staging/projects/#{@project_id}/buildings/v7/tileset.json", @builder.staging_manifest_path(version: 7)
     end
 
+    test "builds staging node paths" do
+      assert_equal "tilesets/staging/projects/#{@project_id}/buildings/v2/nodes/node-root-1.json", @builder.staging_node_tileset_path(version: 2, node_id: "root-1")
+      assert_equal "tilesets/staging/projects/#{@project_id}/buildings/v2/nodes/node-root-1.meta.json", @builder.staging_node_meta_path(version: 2, node_id: "root-1")
+    end
+
     test "rejects non-positive versions" do
       assert_raises(ArgumentError) { @builder.published_manifest_path(version: 0) }
       assert_raises(ArgumentError) { @builder.staging_manifest_path(version: -1) }

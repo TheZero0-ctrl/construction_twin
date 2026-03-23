@@ -74,6 +74,7 @@ class ProcessDatasetJob < ApplicationJob
       layer.visible = true
       layer.name = File.basename(shapefile_path, ".*")
       layer.save!
+      Tilesets::GenerationStarter.new(map_layer: layer).call
     end
   end
 

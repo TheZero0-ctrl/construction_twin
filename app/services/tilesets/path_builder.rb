@@ -31,6 +31,18 @@ module Tilesets
       File.join(staging_version_dir(version: version), "tileset.json")
     end
 
+    def staging_nodes_dir(version:)
+      File.join(staging_version_dir(version: version), "nodes")
+    end
+
+    def staging_node_tileset_path(version:, node_id:)
+      File.join(staging_nodes_dir(version: version), "node-#{node_id}.json")
+    end
+
+    def staging_node_meta_path(version:, node_id:)
+      File.join(staging_nodes_dir(version: version), "node-#{node_id}.meta.json")
+    end
+
     private
 
     attr_reader :tileset, :root, :staging_root
