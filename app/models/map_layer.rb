@@ -4,17 +4,9 @@ class MapLayer < ApplicationRecord
   belongs_to :project
   belongs_to :dataset
 
-  enum :layer_type, {
-    buildings: "buildings",
-    terrain: "terrain",
-    roads: "roads",
-    unknown: "unknown"
-  }
+  enum :layer_type, %w[buildings terrain roads unknown].index_by(&:itself).freeze
 
-  enum :source, {
-    postgis: "postgis",
-    geoserver: "geoserver"
-  }
+  enum :source, %w[postgis geoserver].index_by(&:itself).freeze
 
   validates :name, presence: true
   validates :visible, inclusion: { in: [ true, false ] }

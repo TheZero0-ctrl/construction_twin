@@ -1,0 +1,15 @@
+one_buildings:
+  project: one
+  dataset: one
+  name: Buildings
+  layer_type: buildings
+  source: postgis
+  visible: true
+
+two_buildings:
+  project: two
+  dataset: two
+  name: Buildings
+  layer_type: buildings
+  source: postgis
+  visible: true
