@@ -4,7 +4,9 @@ Rails.application.routes.draw do
       resource :map, only: :show
       resources :buildings, only: :index
       resources :datasets, only: :create
-      resources :layers, only: %i[index update]
+      resources :layers, only: %i[index update] do
+        get :features, on: :member
+      end
     end
   end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

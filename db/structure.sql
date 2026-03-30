@@ -270,7 +270,8 @@ CREATE TABLE public.datasets (
     project_id bigint NOT NULL,
     info jsonb DEFAULT '{}'::jsonb,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    layer_type character varying DEFAULT 'buildings'::character varying NOT NULL
 );
 
 
@@ -406,12 +407,84 @@ ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
 
 
 --
+-- Name: roads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.roads (
+    id bigint NOT NULL,
+    project_id bigint NOT NULL,
+    dataset_id bigint NOT NULL,
+    name character varying,
+    height numeric(10,2) DEFAULT 1.0 NOT NULL,
+    base_height numeric(10,2) DEFAULT 0.0 NOT NULL,
+    geom public.geometry(MultiPolygonZ,4326) NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: roads_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.roads_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: roads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.roads_id_seq OWNED BY public.roads.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.schema_migrations (
     version character varying NOT NULL
 );
+
+
+--
+-- Name: terrains; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.terrains (
+    id bigint NOT NULL,
+    project_id bigint NOT NULL,
+    dataset_id bigint NOT NULL,
+    name character varying,
+    height numeric(10,2) DEFAULT 6.0 NOT NULL,
+    base_height numeric(10,2) DEFAULT 0.0 NOT NULL,
+    geom public.geometry(MultiPolygonZ,4326) NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: terrains_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.terrains_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: terrains_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.terrains_id_seq OWNED BY public.terrains.id;
 
 
 --
@@ -475,6 +548,20 @@ ALTER TABLE ONLY public.map_layers ALTER COLUMN id SET DEFAULT nextval('public.m
 --
 
 ALTER TABLE ONLY public.projects ALTER COLUMN id SET DEFAULT nextval('public.projects_id_seq'::regclass);
+
+
+--
+-- Name: roads id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads ALTER COLUMN id SET DEFAULT nextval('public.roads_id_seq'::regclass);
+
+
+--
+-- Name: terrains id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains ALTER COLUMN id SET DEFAULT nextval('public.terrains_id_seq'::regclass);
 
 
 --
@@ -558,11 +645,27 @@ ALTER TABLE ONLY public.projects
 
 
 --
+-- Name: roads roads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads
+    ADD CONSTRAINT roads_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: terrains terrains_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains
+    ADD CONSTRAINT terrains_pkey PRIMARY KEY (id);
 
 
 --
@@ -664,6 +767,13 @@ CREATE INDEX index_map_layers_on_project_id ON public.map_layers USING btree (pr
 
 
 --
+-- Name: index_map_layers_on_project_id_and_layer_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_map_layers_on_project_id_and_layer_type ON public.map_layers USING btree (project_id, layer_type);
+
+
+--
 -- Name: index_map_layers_on_project_id_and_sort_order; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -675,6 +785,48 @@ CREATE INDEX index_map_layers_on_project_id_and_sort_order ON public.map_layers 
 --
 
 CREATE INDEX index_map_layers_on_status ON public.map_layers USING btree (status);
+
+
+--
+-- Name: index_roads_on_dataset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_roads_on_dataset_id ON public.roads USING btree (dataset_id);
+
+
+--
+-- Name: index_roads_on_geom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_roads_on_geom ON public.roads USING gist (geom);
+
+
+--
+-- Name: index_roads_on_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_roads_on_project_id ON public.roads USING btree (project_id);
+
+
+--
+-- Name: index_terrains_on_dataset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_terrains_on_dataset_id ON public.terrains USING btree (dataset_id);
+
+
+--
+-- Name: index_terrains_on_geom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_terrains_on_geom ON public.terrains USING gist (geom);
+
+
+--
+-- Name: index_terrains_on_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_terrains_on_project_id ON public.terrains USING btree (project_id);
 
 
 --
@@ -694,11 +846,27 @@ ALTER TABLE ONLY public.layer_artifacts
 
 
 --
+-- Name: terrains fk_rails_263fbf2218; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains
+    ADD CONSTRAINT fk_rails_263fbf2218 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: datasets fk_rails_3c9ca87db2; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.datasets
     ADD CONSTRAINT fk_rails_3c9ca87db2 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: terrains fk_rails_47bee6f3dd; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains
+    ADD CONSTRAINT fk_rails_47bee6f3dd FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
 
 
 --
@@ -726,11 +894,27 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 
 --
+-- Name: roads fk_rails_ae4d6a82cc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads
+    ADD CONSTRAINT fk_rails_ae4d6a82cc FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: active_storage_attachments fk_rails_c3b3935057; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.active_storage_attachments
     ADD CONSTRAINT fk_rails_c3b3935057 FOREIGN KEY (blob_id) REFERENCES public.active_storage_blobs(id);
+
+
+--
+-- Name: roads fk_rails_c68b375b44; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads
+    ADD CONSTRAINT fk_rails_c68b375b44 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -756,6 +940,9 @@ CREATE EVENT TRIGGER ogr_system_tables_event_trigger_for_metadata ON sql_drop
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260330131600'),
+('20260330131500'),
+('20260330123000'),
 ('20260330113000'),
 ('20260330100000'),
 ('20260320110100'),

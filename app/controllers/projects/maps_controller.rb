@@ -7,7 +7,6 @@ class Projects::MapsController < ApplicationController
     @layers = @project.map_layers.order(created_at: :desc)
     @has_layers = @project.map_layers.exists?
     @layers_url = project_layers_path(@project)
-    @fallback_buildings_url = project_buildings_path(@project, format: :json, limit: Projects::BuildingsController::MAX_LIMIT)
   end
 
   private

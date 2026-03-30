@@ -17,6 +17,7 @@
               <div class="space-y-2">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="rounded-full bg-stone-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white"><%= dataset.data_type.humanize %></span>
+                  <span class="rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-stone-700"><%= dataset.layer_type.humanize %> layer</span>
                   <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] <%= dataset_status_badge_classes(dataset.status) %>"><%= dataset.status.humanize %></span>
                 </div>
                 <h3 class="text-base font-semibold text-stone-950"><%= dataset.display_name %></h3>
@@ -55,6 +56,12 @@
         <%= render "components/form_label", form: form, field: "data_type" %>
         <%= form.select :data_type, options_for_select(Dataset::SUPPORTED_DATA_TYPES.to_a, dataset.data_type), {}, class: "block w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900" %>
         <p class="text-xs text-stone-500">Only zipped Shapefile uploads are supported in this first version.</p>
+      </div>
+
+      <div class="grid gap-2">
+        <%= render "components/form_label", form: form, field: "layer_type" %>
+        <%= form.select :layer_type, options_for_select(Dataset::UPLOAD_LAYER_TYPES.map { |layer_type| [layer_type.humanize, layer_type] }, dataset.layer_type || "buildings"), {}, class: "block w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900" %>
+        <p class="text-xs text-stone-500">Uploading a new dataset for the same layer type replaces the previous one immediately.</p>
       </div>
 
       <div class="grid gap-2">

@@ -2,6 +2,12 @@
 
 class Dataset < ApplicationRecord
   DEFAULT_FOOTPRINT_HEIGHT_METERS = 28.0
+  DEFAULT_HEIGHT_BY_LAYER_TYPE = {
+    "buildings" => 28.0,
+    "terrain" => 6.0,
+    "roads" => 1.0
+  }.freeze
+  UPLOAD_LAYER_TYPES = %w[buildings terrain roads].freeze
 
   SUPPORTED_DATA_TYPES = {
     "Shapefile (.zip)" => "shapefile"
@@ -9,6 +15,8 @@ class Dataset < ApplicationRecord
 
   belongs_to :project
   has_many :buildings, dependent: :delete_all
+  has_many :terrains, dependent: :delete_all
+  has_many :roads, dependent: :delete_all
   has_one :map_layer, dependent: :destroy
   has_one_attached :file
 
@@ -16,9 +24,12 @@ class Dataset < ApplicationRecord
 
   enum :status, %w[ uploaded processing completed failed ].index_by(&:itself)
   enum :data_type, { shapefile: "shapefile" }
+  enum :layer_type, UPLOAD_LAYER_TYPES.index_by(&:itself)
 
   validates :data_type, presence: true
   validates :data_type, inclusion: { in: data_types.keys }
+  validates :layer_type, presence: true
+  validates :layer_type, inclusion: { in: layer_types.keys }
   validate :file_must_be_attached
   validate :file_format_matches_data_type
 
@@ -32,6 +43,10 @@ class Dataset < ApplicationRecord
 
   def update_info_message!(message)
     update!(info: normalized_info.merge("message" => message))
+  end
+
+  def self.default_height_for(layer_type)
+    DEFAULT_HEIGHT_BY_LAYER_TYPE.fetch(layer_type.to_s, DEFAULT_FOOTPRINT_HEIGHT_METERS)
   end
 
   private

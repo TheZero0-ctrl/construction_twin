@@ -63,7 +63,7 @@ class TilesetExporter
         public_url: relative_public_path(tileset_path),
         generated_at: Time.current,
         metadata: {
-          "feature_count" => dataset.buildings.count,
+          "feature_count" => source_feature_count,
           "revision" => revision
         }
       )
@@ -76,20 +76,22 @@ class TilesetExporter
 
   def create_export_table!(table_name)
     quoted_table = connection.quote_table_name(table_name)
+    source_table = connection.quote_table_name(source_feature_table)
     geometry_expression = extrusion_sql
 
     connection.execute(<<~SQL)
       CREATE TABLE #{quoted_table} AS
       SELECT
-        b.id,
-        b.name,
-        b.height,
-        b.base_height,
+        f.id,
+        f.name,
+        f.height,
+        f.base_height,
+        '#{map_layer.layer_type}'::text AS layer_type,
         #{geometry_expression} AS geom_tile
-      FROM buildings b
-      WHERE b.dataset_id = #{dataset.id.to_i}
-      AND b.geom IS NOT NULL
-      AND ST_IsValid(b.geom)
+      FROM #{source_table} f
+      WHERE f.dataset_id = #{dataset.id.to_i}
+      AND f.geom IS NOT NULL
+      AND ST_IsValid(f.geom)
     SQL
 
     connection.execute("CREATE INDEX #{connection.quote_table_name("idx_#{table_name}_geom_tile")} ON #{quoted_table} USING gist(ST_Centroid(ST_Envelope(geom_tile)))")
@@ -109,10 +111,10 @@ class TilesetExporter
           ST_CollectionExtract(
             ST_Force3DZ(
               CG_Extrude(
-                ST_CollectionExtract(ST_Force3DZ(b.geom), 3),
+                ST_CollectionExtract(ST_Force3DZ(f.geom), 3),
                 0,
                 0,
-                GREATEST(COALESCE(b.height, #{Dataset::DEFAULT_FOOTPRINT_HEIGHT_METERS})::double precision, 0.1)
+                GREATEST(COALESCE(f.height, #{default_height})::double precision, 0.1)
               )
             ),
             3
@@ -123,10 +125,10 @@ class TilesetExporter
       <<~SQL.squish
         ST_Multi(
           ST_Translate(
-            ST_CollectionExtract(ST_Force3DZ(b.geom), 3),
+            ST_CollectionExtract(ST_Force3DZ(f.geom), 3),
             0,
             0,
-            GREATEST(COALESCE(b.height, #{Dataset::DEFAULT_FOOTPRINT_HEIGHT_METERS})::double precision, 0.1)
+            GREATEST(COALESCE(f.height, #{default_height})::double precision, 0.1)
           )
         )::geometry(MultiPolygonZ, 4326)
       SQL
@@ -154,7 +156,7 @@ class TilesetExporter
       *(connection[:user].present? ? [ "--username", connection[:user] ] : []),
       "--table", table_name,
       "--column", "geom_tile",
-      "--attributecolumns", "id,name,height,base_height",
+      "--attributecolumns", "id,name,height,base_height,layer_type",
       "--subdivision", "QUADTREE",
       "--output", output_inside_container
     ]
@@ -222,5 +224,26 @@ class TilesetExporter
     return [] unless config[:password].present?
 
     [ "-e", "PGPASSWORD=#{config[:password]}" ]
+  end
+
+  def source_feature_table
+    case map_layer.layer_type
+    when "buildings"
+      "buildings"
+    when "terrain"
+      "terrains"
+    when "roads"
+      "roads"
+    else
+      raise "Unsupported layer type for tiles export: #{map_layer.layer_type}"
+    end
+  end
+
+  def source_feature_count
+    dataset.public_send(source_feature_table).count
+  end
+
+  def default_height
+    Dataset.default_height_for(map_layer.layer_type)
   end
 end

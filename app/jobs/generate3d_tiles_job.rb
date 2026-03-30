@@ -2,7 +2,9 @@
 
 class Generate3dTilesJob < ApplicationJob
   def perform(dataset_id)
-    dataset = Dataset.includes(:map_layer).find(dataset_id)
+    dataset = Dataset.includes(:map_layer).find_by(id: dataset_id)
+    return unless dataset
+
     layer = dataset.map_layer
     return unless layer
 

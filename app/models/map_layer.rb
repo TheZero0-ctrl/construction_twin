@@ -12,6 +12,7 @@ class MapLayer < ApplicationRecord
 
   validates :name, presence: true
   validates :visible, inclusion: { in: [ true, false ] }
+  validates :layer_type, uniqueness: { scope: :project_id }
 
   def active_artifact(format)
     layer_artifacts.active.ready.find_by(format: format)

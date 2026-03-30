@@ -19,6 +19,7 @@ class Projects::LayersIndexPresenter < Projects::Presenter
   end
 
   def layer_payload(layer)
-    Projects::LayerPresenter.new(layer, fallback_geojson_url: fallback_geojson_url).to_h
+    resolved_url = fallback_geojson_url.respond_to?(:call) ? fallback_geojson_url.call(layer) : fallback_geojson_url
+    Projects::LayerPresenter.new(layer, fallback_geojson_url: resolved_url).to_h
   end
 end
