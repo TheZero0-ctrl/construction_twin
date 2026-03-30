@@ -15,6 +15,7 @@
     "@hotwired/turbo-rails": "^8.0.23",
     "@tailwindcss/cli": "^4.2.1",
     "cesium": "^1.139.1",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.2.1",
+    "tailwindcss-stimulus-components": "^6.1.3"
   }
 }

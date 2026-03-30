@@ -6,17 +6,20 @@ require "tempfile"
 require "tmpdir"
 
 class ProcessDatasetJob < ApplicationJob
-  queue_as :default
-
   SHAPEFILE_ARCHIVE_EXTENSIONS = %w[.shp .shx .dbf .prj .cpg .sbn .sbx .qix .txt].freeze
 
   def perform(dataset)
     dataset.update!(status: :processing)
+    layer = ensure_buildings_layer!(dataset)
+    layer.update!(status: :processing, last_error: nil)
 
     imported_count = import_shapefile!(dataset)
-    dataset.update_info_message!("Import completed. #{imported_count} building features were loaded.")
+    dataset.update_info_message!("Import completed. #{imported_count} building features were loaded. 3D tile generation started.")
     dataset.update!(status: :completed)
+    layer.update!(status: :pending)
+    Generate3dTilesJob.perform_later(dataset.id)
   rescue StandardError => error
+    dataset.map_layer&.update!(status: :failed, last_error: error.message)
     dataset.update!(status: :failed, info: failure_info(dataset, error)) if dataset&.persisted?
     raise
   end
@@ -51,7 +54,7 @@ class ProcessDatasetJob < ApplicationJob
     import_to_staging!(shapefile_path, import_table_name, connection_config)
 
     imported_count = move_staged_buildings!(dataset)
-    ensure_buildings_layer!(dataset, shapefile_path)
+    update_buildings_layer_name!(dataset, shapefile_path)
     imported_count
   ensure
     temp_zip&.close
@@ -67,14 +70,19 @@ class ProcessDatasetJob < ApplicationJob
     raise "No .shp file found inside uploaded archive"
   end
 
-  def ensure_buildings_layer!(dataset, shapefile_path)
-    dataset.map_layers.find_or_initialize_by(layer_type: :buildings).tap do |layer|
-      layer.project = dataset.project
-      layer.source = :postgis
-      layer.visible = true
-      layer.name = File.basename(shapefile_path, ".*")
-      layer.save!
-    end
+  def ensure_buildings_layer!(dataset)
+    layer = dataset.map_layer || dataset.build_map_layer(layer_type: :buildings)
+    layer.project = dataset.project
+    layer.source = :postgis
+    layer.visible = true
+    layer.status = :pending
+    layer.name = dataset.file.filename.base if layer.name.blank? && dataset.file.attached?
+    layer.save!
+    layer
+  end
+
+  def update_buildings_layer_name!(dataset, shapefile_path)
+    ensure_buildings_layer!(dataset).update!(name: File.basename(shapefile_path, ".*"))
   end
 
   def import_to_staging!(shapefile_path, staging_table, pg_config)
@@ -101,17 +109,26 @@ class ProcessDatasetJob < ApplicationJob
     table = staging_table_name(dataset)
     name_expr = column_expression(table, %w[name Name NAME])
     height_expr = column_expression(table, %w[height Height HEIGHT elev ELEV z Z], cast: "numeric")
+    base_height_expr = column_expression(table, %w[base_height BaseHeight BASE_HEIGHT base_z BaseZ BASE_Z], cast: "numeric")
 
     connection = ActiveRecord::Base.connection
     now = Time.current
     insert_sql = <<~SQL
-      INSERT INTO buildings (project_id, dataset_id, name, height, geom, created_at, updated_at)
+      INSERT INTO buildings (project_id, dataset_id, name, height, base_height, geom, created_at, updated_at)
       SELECT
         $1,
         $2,
         #{name_expr},
-        #{height_expr},
-        ST_Multi(geom)::geometry(MultiPolygon, 4326),
+        GREATEST(COALESCE(#{height_expr}, #{Dataset::DEFAULT_FOOTPRINT_HEIGHT_METERS}), 0.1),
+        GREATEST(COALESCE(#{base_height_expr}, 0), 0),
+        ST_Multi(
+          ST_Translate(
+            ST_Force3DZ(geom),
+            0,
+            0,
+            GREATEST(COALESCE(#{base_height_expr}, 0), 0)
+          )
+        )::geometry(MultiPolygonZ, 4326),
         $3,
         $4
       FROM #{connection.quote_table_name(table)}

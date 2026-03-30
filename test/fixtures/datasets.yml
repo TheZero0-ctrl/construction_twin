@@ -1,11 +1,6 @@
 one:
   project: one
-  status: uploaded
   data_type: shapefile
-  info: {}
-
-two:
-  project: two
-  status: uploaded
-  data_type: shapefile
-  info: {}
+  status: completed
+  info:
+    message: Import completed.

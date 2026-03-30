@@ -1,0 +1,10 @@
+one:
+  map_layer: one
+  format: tiles_3d
+  status: ready
+  storage_path: /tilesets/projects/1/layers/1/revisions/20260320120000/content/tileset.json
+  public_url: /tilesets/projects/1/layers/1/revisions/20260320120000/content/tileset.json
+  metadata:
+    feature_count: 12
+  active: true
+  generated_at: <%= Time.current %>

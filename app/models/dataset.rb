@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 class Dataset < ApplicationRecord
+  DEFAULT_FOOTPRINT_HEIGHT_METERS = 28.0
+
   SUPPORTED_DATA_TYPES = {
     "Shapefile (.zip)" => "shapefile"
   }.freeze
 
   belongs_to :project
-  has_many :buildings, dependent: :destroy
-  has_many :map_layers, dependent: :destroy
+  has_many :buildings, dependent: :delete_all
+  has_one :map_layer, dependent: :destroy
   has_one_attached :file
 
   scope :recently_uploaded, -> { with_attached_file.order(created_at: :desc) }

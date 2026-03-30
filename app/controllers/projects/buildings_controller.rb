@@ -9,23 +9,14 @@ class Projects::BuildingsController < ApplicationController
   def index
     total_count = @project.buildings.count
     limit = requested_limit
-    features = building_features(
-      @project
-        .buildings
-        .order(:id)
-        .limit(limit)
-    )
+    buildings = selected_buildings(limit)
 
-    render json: {
-      type: "FeatureCollection",
-      features: features,
-      meta: {
-        total_count: total_count,
-        returned_count: features.size,
-        limit: limit,
-        truncated: total_count > features.size
-      }
-    }
+    render json: Projects::BuildingsFeatureCollectionPresenter.new(
+      @project,
+      buildings: buildings,
+      total_count: total_count,
+      limit: limit
+    ).to_h
   end
 
   private
@@ -34,11 +25,13 @@ class Projects::BuildingsController < ApplicationController
     @project = Project.find(params.expect(:project_id))
   end
 
-  def building_features(buildings)
-    buildings
-      .select(:id, :name, :height)
+  def selected_buildings(limit)
+    @project
+      .buildings
+      .order(:id)
+      .limit(limit)
+      .select(:id, :name, :height, :base_height)
       .select("ST_AsGeoJSON(geom)::json AS geometry")
-      .map { |building| building_feature(building) }
   end
 
   def requested_limit
@@ -46,18 +39,5 @@ class Projects::BuildingsController < ApplicationController
     return DEFAULT_LIMIT if raw_value <= 0
 
     [ raw_value, MAX_LIMIT ].min
-  end
-
-  def building_feature(building)
-    {
-      type: "Feature",
-      id: building.id,
-      geometry: building.geometry,
-      properties: {
-        id: building.id,
-        name: building.name,
-        height: building.height&.to_f
-      }
-    }
   end
 end

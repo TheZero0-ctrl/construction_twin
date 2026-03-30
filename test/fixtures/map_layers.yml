@@ -1,15 +1,9 @@
-one_buildings:
+one:
   project: one
   dataset: one
   name: Buildings
   layer_type: buildings
-  source: postgis
+  source: tiles_3d
+  status: ready
   visible: true
-
-two_buildings:
-  project: two
-  dataset: two
-  name: Buildings
-  layer_type: buildings
-  source: postgis
-  visible: true
+  sort_order: 0

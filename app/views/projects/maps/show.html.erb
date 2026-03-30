@@ -1,57 +1,47 @@
-<% content_for :title, "#{@project.name} · Map" %>
+<% content_for :title, "#{@project.name} - Map" %>
 
-<section class="space-y-6">
-  <div
-    class="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]"
-    data-controller="project-map"
-    data-project-map-buildings-url-value="<%= @buildings_url %>"
-  >
-    <aside class="space-y-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-      <section class="space-y-3">
-        <h2 class="text-base font-semibold text-stone-950">Layers</h2>
-        <label class="flex items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
-          <span>Buildings</span>
-          <input
-            type="checkbox"
-            class="h-4 w-4 rounded border-stone-300 text-stone-900"
-            data-project-map-target="buildingsToggle"
-            data-action="project-map#toggleBuildings"
-            checked
-          >
-        </label>
+<section
+  class="relative h-full w-full"
+  data-controller="project-map slideover"
+  data-project-map-layers-url-value="<%= @layers_url %>"
+  data-project-map-fallback-buildings-url-value="<%= @fallback_buildings_url %>"
+>
+  <div class="absolute inset-0 overflow-hidden bg-stone-950" data-project-map-target="container"></div>
 
-        <% if @layers.any? %>
-          <div class="space-y-2">
-            <% @layers.each do |layer| %>
-              <div class="rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
-                <%= layer.name %> <span class="text-stone-500">(<%= layer.layer_type %>)</span>
-              </div>
-            <% end %>
-          </div>
-        <% else %>
-          <p class="rounded-2xl border border-dashed border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-600">
-            No map layers are available yet. Upload and process a dataset first.
-          </p>
-        <% end %>
-      </section>
-    </aside>
+  <div class="pointer-events-none absolute left-4 right-4 top-4 z-20 flex items-start gap-3">
+    <button
+      type="button"
+      class="pointer-events-auto inline-flex items-center justify-center rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-stone-700"
+      data-action="slideover#open"
+    >
+      Layers
+    </button>
 
-    <section class="rounded-3xl border border-stone-200 bg-white p-3 shadow-sm sm:p-4">
-      <p class="px-2 pb-2 text-xs text-stone-500" data-project-map-target="status"></p>
-      <% if @has_buildings %>
-        <div
-          class="h-[24rem] overflow-hidden rounded-2xl border border-stone-200 sm:h-[32rem] lg:h-[40rem]"
-          data-project-map-target="container"
-        ></div>
-      <% else %>
-        <div class="flex h-[24rem] items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-6 text-center sm:h-[32rem] lg:h-[40rem]">
-          <div class="max-w-md space-y-3">
-            <h2 class="text-xl font-semibold text-stone-900">No processed buildings yet</h2>
-            <p class="text-sm text-stone-600">Once a dataset finishes processing, building geometry will appear here for 3D exploration.</p>
-            <%= link_to "Upload dataset", project_path(@project), class: "inline-flex items-center justify-center rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-700" %>
-          </div>
-        </div>
-      <% end %>
-    </section>
+    <p class="pointer-events-auto rounded-xl bg-white/90 px-3 py-2 text-xs text-stone-600 shadow" data-project-map-target="status">Initializing map...</p>
   </div>
+
+  <% unless @has_layers %>
+    <div class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+      <div class="pointer-events-auto max-w-md rounded-2xl border border-stone-200 bg-white/95 p-6 text-center shadow-lg">
+        <h2 class="text-xl font-semibold text-stone-900">No processed layers yet</h2>
+        <p class="mt-2 text-sm text-stone-600">Upload and process a dataset to render buildings in the full-screen map.</p>
+        <%= link_to "Upload dataset", project_path(@project), class: "mt-4 inline-flex items-center justify-center rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-700" %>
+      </div>
+    </div>
+  <% end %>
+
+  <dialog data-slideover-target="dialog" class="slideover m-0 h-full max-h-full w-full max-w-sm border-0 p-0 shadow-2xl backdrop:bg-stone-900/45">
+    <div class="flex h-full flex-col bg-white">
+      <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+        <h2 class="text-base font-semibold text-stone-950">Layer Selection</h2>
+        <button type="button" class="rounded-lg px-2 py-1 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900" data-action="slideover#close">Close</button>
+      </div>
+
+      <div class="overflow-y-auto p-5">
+        <div class="space-y-2" data-project-map-target="layersPanel">
+          <p class="text-sm text-stone-500">Loading layers...</p>
+        </div>
+      </div>
+    </div>
+  </dialog>
 </section>
