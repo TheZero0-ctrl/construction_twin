@@ -1,4 +1,14 @@
 import { Controller } from "@hotwired/stimulus"
+import {
+  Viewer,
+  OpenStreetMapImageryProvider,
+  GeoJsonDataSource,
+  Color,
+  JulianDate
+} from "cesium"
+import "cesium/Build/Cesium/Widgets/widgets.css"
+
+window.CESIUM_BASE_URL = "/cesium"
 
 export default class extends Controller {
   static targets = ["container", "buildingsToggle", "status"]
@@ -8,18 +18,14 @@ export default class extends Controller {
 
   static DEFAULT_BUILDING_HEIGHT = 12
 
-  connect() {
-    if (!this.hasContainerTarget || !window.Cesium) return
-
-    const Cesium = window.Cesium
-
-    this.viewer = new Cesium.Viewer(this.containerTarget, {
+  async connect() {
+    this.viewer = new Viewer(this.containerTarget, {
       animation: false,
       baseLayerPicker: false,
       fullscreenButton: false,
       geocoder: false,
       homeButton: true,
-      imageryProvider: new Cesium.OpenStreetMapImageryProvider({
+      imageryProvider: new OpenStreetMapImageryProvider({
         url: "https://tile.openstreetmap.org/"
       }),
       infoBox: true,
@@ -62,18 +68,17 @@ export default class extends Controller {
       }
 
       const payload = await response.json()
-      const Cesium = window.Cesium
 
       const geoJson = {
         type: "FeatureCollection",
         features: payload.features || []
       }
 
-      this.buildingsDataSource = await Cesium.GeoJsonDataSource.load(geoJson, {
+      this.buildingsDataSource = await GeoJsonDataSource.load(geoJson, {
         clampToGround: false,
-        stroke: Cesium.Color.fromCssColorString("#1c1917"),
+        stroke: Color.fromCssColorString("#1c1917"),
         strokeWidth: 1,
-        fill: Cesium.Color.fromCssColorString("#57534e").withAlpha(0.75)
+        fill: Color.fromCssColorString("#57534e").withAlpha(0.75)
       })
 
       this.viewer.dataSources.add(this.buildingsDataSource)
@@ -99,7 +104,6 @@ export default class extends Controller {
   applyBuildingStyles() {
     if (!this.buildingsDataSource) return
 
-    const Cesium = window.Cesium
     const entities = this.buildingsDataSource.entities.values
 
     entities.forEach((entity) => {
@@ -107,9 +111,9 @@ export default class extends Controller {
 
       entity.polygon.extrudedHeight = this.buildingHeightFor(entity)
       entity.polygon.height = 0
-      entity.polygon.material = Cesium.Color.fromCssColorString("#78716c").withAlpha(0.85)
+      entity.polygon.material = Color.fromCssColorString("#78716c").withAlpha(0.85)
       entity.polygon.outline = true
-      entity.polygon.outlineColor = Cesium.Color.fromCssColorString("#1c1917")
+      entity.polygon.outlineColor = Color.fromCssColorString("#1c1917")
     })
   }
 
@@ -126,8 +130,7 @@ export default class extends Controller {
   }
 
   buildingHeightFor(entity) {
-    const Cesium = window.Cesium
-    const rawHeight = entity.properties?.height?.getValue(Cesium.JulianDate.now())
+    const rawHeight = entity.properties?.height?.getValue(JulianDate.now())
     const numericHeight = Number(rawHeight)
 
     return Number.isFinite(numericHeight) && numericHeight > 0 ? numericHeight : this.constructor.DEFAULT_BUILDING_HEIGHT
