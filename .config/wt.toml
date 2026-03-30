@@ -1,0 +1,3 @@
+# .config/wt.toml
+[post-start]
+copy = "wt step copy-ignored"
