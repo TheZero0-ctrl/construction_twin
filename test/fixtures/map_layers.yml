@@ -1,0 +1,9 @@
+one:
+  project: one
+  dataset: one
+  name: Buildings
+  layer_type: buildings
+  source: tiles_3d
+  status: ready
+  visible: true
+  sort_order: 0

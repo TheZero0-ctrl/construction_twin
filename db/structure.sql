@@ -11,6 +11,20 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: ogr_system_tables; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA ogr_system_tables;
+
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON SCHEMA public IS '';
+
+
+--
 -- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -24,9 +38,79 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
 
 
+--
+-- Name: postgis_sfcgal; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS postgis_sfcgal WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION postgis_sfcgal; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION postgis_sfcgal IS 'PostGIS SFCGAL functions';
+
+
+--
+-- Name: event_trigger_function_for_metadata(); Type: FUNCTION; Schema: ogr_system_tables; Owner: -
+--
+
+CREATE FUNCTION ogr_system_tables.event_trigger_function_for_metadata() RETURNS event_trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    obj record;
+BEGIN
+  IF has_schema_privilege('ogr_system_tables', 'USAGE') THEN
+   IF has_table_privilege('ogr_system_tables.metadata', 'DELETE') THEN
+    FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects()
+    LOOP
+        IF obj.object_type = 'table' THEN
+            DELETE FROM ogr_system_tables.metadata m WHERE m.schema_name = obj.schema_name AND m.table_name = obj.object_name;
+        END IF;
+    END LOOP;
+   END IF;
+  END IF;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: metadata; Type: TABLE; Schema: ogr_system_tables; Owner: -
+--
+
+CREATE TABLE ogr_system_tables.metadata (
+    id integer NOT NULL,
+    schema_name text NOT NULL,
+    table_name text NOT NULL,
+    metadata text
+);
+
+
+--
+-- Name: metadata_id_seq; Type: SEQUENCE; Schema: ogr_system_tables; Owner: -
+--
+
+CREATE SEQUENCE ogr_system_tables.metadata_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: metadata_id_seq; Type: SEQUENCE OWNED BY; Schema: ogr_system_tables; Owner: -
+--
+
+ALTER SEQUENCE ogr_system_tables.metadata_id_seq OWNED BY ogr_system_tables.metadata.id;
+
 
 --
 -- Name: active_storage_attachments; Type: TABLE; Schema: public; Owner: -
@@ -148,8 +232,9 @@ CREATE TABLE public.buildings (
     project_id bigint NOT NULL,
     dataset_id bigint NOT NULL,
     name character varying,
-    height numeric(10,2),
-    geom public.geometry(MultiPolygon,4326) NOT NULL,
+    height numeric(10,2) DEFAULT 28.0 NOT NULL,
+    base_height numeric(10,2) DEFAULT 0.0 NOT NULL,
+    geom public.geometry(MultiPolygonZ,4326) NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -185,7 +270,8 @@ CREATE TABLE public.datasets (
     project_id bigint NOT NULL,
     info jsonb DEFAULT '{}'::jsonb,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    layer_type character varying DEFAULT 'buildings'::character varying NOT NULL
 );
 
 
@@ -209,6 +295,45 @@ ALTER SEQUENCE public.datasets_id_seq OWNED BY public.datasets.id;
 
 
 --
+-- Name: layer_artifacts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.layer_artifacts (
+    id bigint NOT NULL,
+    map_layer_id bigint NOT NULL,
+    format character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    storage_path character varying NOT NULL,
+    public_url character varying,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    error_message text,
+    active boolean DEFAULT false NOT NULL,
+    generated_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: layer_artifacts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.layer_artifacts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: layer_artifacts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.layer_artifacts_id_seq OWNED BY public.layer_artifacts.id;
+
+
+--
 -- Name: map_layers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -219,7 +344,11 @@ CREATE TABLE public.map_layers (
     name character varying NOT NULL,
     layer_type character varying NOT NULL,
     source character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
     visible boolean DEFAULT true NOT NULL,
+    last_processed_at timestamp(6) without time zone,
+    last_error text,
+    sort_order integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -250,7 +379,7 @@ ALTER SEQUENCE public.map_layers_id_seq OWNED BY public.map_layers.id;
 
 CREATE TABLE public.projects (
     id bigint NOT NULL,
-    name character varying,
+    name character varying NOT NULL,
     location character varying,
     description text,
     created_at timestamp(6) without time zone NOT NULL,
@@ -278,12 +407,91 @@ ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
 
 
 --
+-- Name: roads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.roads (
+    id bigint NOT NULL,
+    project_id bigint NOT NULL,
+    dataset_id bigint NOT NULL,
+    name character varying,
+    height numeric(10,2) DEFAULT 1.0 NOT NULL,
+    base_height numeric(10,2) DEFAULT 0.0 NOT NULL,
+    geom public.geometry(MultiPolygonZ,4326) NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: roads_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.roads_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: roads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.roads_id_seq OWNED BY public.roads.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.schema_migrations (
     version character varying NOT NULL
 );
+
+
+--
+-- Name: terrains; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.terrains (
+    id bigint NOT NULL,
+    project_id bigint NOT NULL,
+    dataset_id bigint NOT NULL,
+    name character varying,
+    height numeric(10,2) DEFAULT 6.0 NOT NULL,
+    base_height numeric(10,2) DEFAULT 0.0 NOT NULL,
+    geom public.geometry(MultiPolygonZ,4326) NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: terrains_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.terrains_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: terrains_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.terrains_id_seq OWNED BY public.terrains.id;
+
+
+--
+-- Name: metadata id; Type: DEFAULT; Schema: ogr_system_tables; Owner: -
+--
+
+ALTER TABLE ONLY ogr_system_tables.metadata ALTER COLUMN id SET DEFAULT nextval('ogr_system_tables.metadata_id_seq'::regclass);
 
 
 --
@@ -322,6 +530,13 @@ ALTER TABLE ONLY public.datasets ALTER COLUMN id SET DEFAULT nextval('public.dat
 
 
 --
+-- Name: layer_artifacts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.layer_artifacts ALTER COLUMN id SET DEFAULT nextval('public.layer_artifacts_id_seq'::regclass);
+
+
+--
 -- Name: map_layers id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -333,6 +548,28 @@ ALTER TABLE ONLY public.map_layers ALTER COLUMN id SET DEFAULT nextval('public.m
 --
 
 ALTER TABLE ONLY public.projects ALTER COLUMN id SET DEFAULT nextval('public.projects_id_seq'::regclass);
+
+
+--
+-- Name: roads id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads ALTER COLUMN id SET DEFAULT nextval('public.roads_id_seq'::regclass);
+
+
+--
+-- Name: terrains id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains ALTER COLUMN id SET DEFAULT nextval('public.terrains_id_seq'::regclass);
+
+
+--
+-- Name: metadata metadata_schema_name_table_name_key; Type: CONSTRAINT; Schema: ogr_system_tables; Owner: -
+--
+
+ALTER TABLE ONLY ogr_system_tables.metadata
+    ADD CONSTRAINT metadata_schema_name_table_name_key UNIQUE (schema_name, table_name);
 
 
 --
@@ -384,6 +621,14 @@ ALTER TABLE ONLY public.datasets
 
 
 --
+-- Name: layer_artifacts layer_artifacts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.layer_artifacts
+    ADD CONSTRAINT layer_artifacts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: map_layers map_layers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -400,11 +645,27 @@ ALTER TABLE ONLY public.projects
 
 
 --
+-- Name: roads roads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads
+    ADD CONSTRAINT roads_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: terrains terrains_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains
+    ADD CONSTRAINT terrains_pkey PRIMARY KEY (id);
 
 
 --
@@ -471,17 +732,31 @@ CREATE INDEX index_datasets_on_status ON public.datasets USING btree (status);
 
 
 --
+-- Name: index_layer_artifacts_active_per_format; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_layer_artifacts_active_per_format ON public.layer_artifacts USING btree (map_layer_id, format, active) WHERE (active = true);
+
+
+--
+-- Name: index_layer_artifacts_on_map_layer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_layer_artifacts_on_map_layer_id ON public.layer_artifacts USING btree (map_layer_id);
+
+
+--
+-- Name: index_layer_artifacts_on_map_layer_id_and_format_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_layer_artifacts_on_map_layer_id_and_format_and_status ON public.layer_artifacts USING btree (map_layer_id, format, status);
+
+
+--
 -- Name: index_map_layers_on_dataset_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_map_layers_on_dataset_id ON public.map_layers USING btree (dataset_id);
-
-
---
--- Name: index_map_layers_on_dataset_id_and_layer_type; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_map_layers_on_dataset_id_and_layer_type ON public.map_layers USING btree (dataset_id, layer_type);
+CREATE UNIQUE INDEX index_map_layers_on_dataset_id ON public.map_layers USING btree (dataset_id);
 
 
 --
@@ -492,11 +767,90 @@ CREATE INDEX index_map_layers_on_project_id ON public.map_layers USING btree (pr
 
 
 --
+-- Name: index_map_layers_on_project_id_and_layer_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_map_layers_on_project_id_and_layer_type ON public.map_layers USING btree (project_id, layer_type);
+
+
+--
+-- Name: index_map_layers_on_project_id_and_sort_order; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_map_layers_on_project_id_and_sort_order ON public.map_layers USING btree (project_id, sort_order);
+
+
+--
+-- Name: index_map_layers_on_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_map_layers_on_status ON public.map_layers USING btree (status);
+
+
+--
+-- Name: index_roads_on_dataset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_roads_on_dataset_id ON public.roads USING btree (dataset_id);
+
+
+--
+-- Name: index_roads_on_geom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_roads_on_geom ON public.roads USING gist (geom);
+
+
+--
+-- Name: index_roads_on_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_roads_on_project_id ON public.roads USING btree (project_id);
+
+
+--
+-- Name: index_terrains_on_dataset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_terrains_on_dataset_id ON public.terrains USING btree (dataset_id);
+
+
+--
+-- Name: index_terrains_on_geom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_terrains_on_geom ON public.terrains USING gist (geom);
+
+
+--
+-- Name: index_terrains_on_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_terrains_on_project_id ON public.terrains USING btree (project_id);
+
+
+--
 -- Name: map_layers fk_rails_04e4a6f46d; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.map_layers
-    ADD CONSTRAINT fk_rails_04e4a6f46d FOREIGN KEY (dataset_id) REFERENCES public.datasets(id);
+    ADD CONSTRAINT fk_rails_04e4a6f46d FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: layer_artifacts fk_rails_2127d4125a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.layer_artifacts
+    ADD CONSTRAINT fk_rails_2127d4125a FOREIGN KEY (map_layer_id) REFERENCES public.map_layers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: terrains fk_rails_263fbf2218; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains
+    ADD CONSTRAINT fk_rails_263fbf2218 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -504,7 +858,15 @@ ALTER TABLE ONLY public.map_layers
 --
 
 ALTER TABLE ONLY public.datasets
-    ADD CONSTRAINT fk_rails_3c9ca87db2 FOREIGN KEY (project_id) REFERENCES public.projects(id);
+    ADD CONSTRAINT fk_rails_3c9ca87db2 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: terrains fk_rails_47bee6f3dd; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.terrains
+    ADD CONSTRAINT fk_rails_47bee6f3dd FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
 
 
 --
@@ -512,7 +874,7 @@ ALTER TABLE ONLY public.datasets
 --
 
 ALTER TABLE ONLY public.buildings
-    ADD CONSTRAINT fk_rails_48c8763d4f FOREIGN KEY (dataset_id) REFERENCES public.datasets(id);
+    ADD CONSTRAINT fk_rails_48c8763d4f FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
 
 
 --
@@ -520,7 +882,7 @@ ALTER TABLE ONLY public.buildings
 --
 
 ALTER TABLE ONLY public.map_layers
-    ADD CONSTRAINT fk_rails_8485c588a0 FOREIGN KEY (project_id) REFERENCES public.projects(id);
+    ADD CONSTRAINT fk_rails_8485c588a0 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -532,6 +894,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 
 --
+-- Name: roads fk_rails_ae4d6a82cc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads
+    ADD CONSTRAINT fk_rails_ae4d6a82cc FOREIGN KEY (dataset_id) REFERENCES public.datasets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: active_storage_attachments fk_rails_c3b3935057; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -540,11 +910,27 @@ ALTER TABLE ONLY public.active_storage_attachments
 
 
 --
+-- Name: roads fk_rails_c68b375b44; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roads
+    ADD CONSTRAINT fk_rails_c68b375b44 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: buildings fk_rails_e6f7f8c2d9; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.buildings
-    ADD CONSTRAINT fk_rails_e6f7f8c2d9 FOREIGN KEY (project_id) REFERENCES public.projects(id);
+    ADD CONSTRAINT fk_rails_e6f7f8c2d9 FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: ogr_system_tables_event_trigger_for_metadata; Type: EVENT TRIGGER; Schema: -; Owner: -
+--
+
+CREATE EVENT TRIGGER ogr_system_tables_event_trigger_for_metadata ON sql_drop
+   EXECUTE FUNCTION ogr_system_tables.event_trigger_function_for_metadata();
 
 
 --
@@ -554,6 +940,12 @@ ALTER TABLE ONLY public.buildings
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260330131600'),
+('20260330131500'),
+('20260330123000'),
+('20260330113000'),
+('20260330100000'),
+('20260320110100'),
 ('20260320110000'),
 ('20260318110100'),
 ('20260318110000'),

@@ -4,8 +4,13 @@ class Projects::DatasetsController < ApplicationController
   before_action :set_project
 
   def create
+    selected_layer_type = dataset_params[:layer_type].presence || "buildings"
     upload = dataset_params[:file]
-    @dataset = @project.datasets.build(data_type: dataset_params[:data_type], status: :uploaded)
+    @dataset = @project.datasets.build(
+      data_type: dataset_params[:data_type],
+      layer_type: selected_layer_type,
+      status: :uploaded
+    )
 
     unless upload.present?
       @dataset.errors.add(:file, :must_be_attached)
@@ -15,8 +20,20 @@ class Projects::DatasetsController < ApplicationController
 
     @dataset.file.attach(upload)
 
-    if @dataset.save
-      ProcessDatasetJob.perform_later(@dataset)
+    saved = false
+    @project.with_lock do
+      existing_dataset = @project.datasets
+        .where(layer_type: selected_layer_type)
+        .where.not(id: @dataset.id)
+        .order(created_at: :desc)
+        .first
+
+      saved = @dataset.save
+      existing_dataset&.destroy! if saved && existing_dataset.present?
+    end
+
+    if saved
+      ProcessDatasetJob.perform_later(@dataset.id)
       flash.now[:notice] = t(".created")
       render_create_change
     else
@@ -36,7 +53,7 @@ class Projects::DatasetsController < ApplicationController
   end
 
   def dataset_params
-    params.expect(dataset: [ :data_type, :file ])
+    params.expect(dataset: [ :data_type, :layer_type, :file ])
   end
 
   def render_create_change(status: :created)

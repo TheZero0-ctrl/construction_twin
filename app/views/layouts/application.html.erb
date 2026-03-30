@@ -20,10 +20,12 @@
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "/cesium/Widgets/widgets.css", "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
   </head>
 
   <body class="min-h-screen bg-stone-100 text-stone-900 antialiased">
+    <% fullscreen_map_page = controller_path == "projects/maps" && action_name == "show" %>
     <div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.9),_rgba(245,243,240,0.96)_45%,_rgba(231,229,228,1)_100%)]">
       <header class="border-b border-stone-200/80 bg-white/80 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -40,8 +42,10 @@
         </div>
       </header>
 
-      <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-        <%= render "layouts/flash" %>
+      <main class="<%= fullscreen_map_page ? "h-[calc(100vh-73px)]" : "mx-auto max-w-6xl px-4 py-8 sm:px-6" %>">
+        <% unless fullscreen_map_page %>
+          <%= render "layouts/flash" %>
+        <% end %>
 
         <%= yield %>
       </main>

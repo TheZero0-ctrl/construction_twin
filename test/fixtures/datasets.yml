@@ -1,0 +1,6 @@
+one:
+  project: one
+  data_type: shapefile
+  status: completed
+  info:
+    message: Import completed.

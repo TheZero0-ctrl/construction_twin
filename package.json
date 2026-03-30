@@ -6,12 +6,16 @@
   },
   "scripts": {
     "build": "esbuild app/javascript/*.* --bundle --sourcemap --format=esm --outdir=app/assets/builds --public-path=/assets",
+    "build:cesium": "mkdir -p public/cesium && cp -R node_modules/cesium/Build/Cesium/Assets public/cesium/Assets && cp -R node_modules/cesium/Build/Cesium/ThirdParty public/cesium/ThirdParty && cp -R node_modules/cesium/Build/Cesium/Workers public/cesium/Workers && cp -R node_modules/cesium/Build/Cesium/Widgets public/cesium/Widgets",
+    "build:all": "npm run build && npm run build:cesium",
     "build:css": "npx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --minify"
   },
   "dependencies": {
     "@hotwired/stimulus": "^3.2.2",
     "@hotwired/turbo-rails": "^8.0.23",
     "@tailwindcss/cli": "^4.2.1",
-    "tailwindcss": "^4.2.1"
+    "cesium": "^1.139.1",
+    "tailwindcss": "^4.2.1",
+    "tailwindcss-stimulus-components": "^6.1.3"
   }
 }

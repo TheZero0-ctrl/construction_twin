@@ -1,0 +1,46 @@
+<% content_for :title, "#{@project.name} - Map" %>
+
+<section
+  class="relative h-full w-full"
+  data-controller="project-map slideover"
+  data-project-map-layers-url-value="<%= @layers_url %>"
+>
+  <div class="absolute inset-0 overflow-hidden bg-stone-950" data-project-map-target="container"></div>
+
+  <div class="pointer-events-none absolute left-4 right-4 top-4 z-20 flex items-start gap-3">
+    <button
+      type="button"
+      class="pointer-events-auto inline-flex items-center justify-center rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-stone-700"
+      data-action="slideover#open"
+    >
+      Layers
+    </button>
+
+    <p class="pointer-events-auto rounded-xl bg-white/90 px-3 py-2 text-xs text-stone-600 shadow" data-project-map-target="status">Initializing map...</p>
+  </div>
+
+  <% unless @has_layers %>
+    <div class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+      <div class="pointer-events-auto max-w-md rounded-2xl border border-stone-200 bg-white/95 p-6 text-center shadow-lg">
+        <h2 class="text-xl font-semibold text-stone-900">No processed layers yet</h2>
+        <p class="mt-2 text-sm text-stone-600">Upload and process a dataset to render buildings in the full-screen map.</p>
+        <%= link_to "Upload dataset", project_path(@project), class: "mt-4 inline-flex items-center justify-center rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-700" %>
+      </div>
+    </div>
+  <% end %>
+
+  <dialog data-slideover-target="dialog" class="slideover m-0 h-full max-h-full w-full max-w-sm border-0 p-0 shadow-2xl backdrop:bg-stone-900/45">
+    <div class="flex h-full flex-col bg-white">
+      <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+        <h2 class="text-base font-semibold text-stone-950">Layer Selection</h2>
+        <button type="button" class="rounded-lg px-2 py-1 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900" data-action="slideover#close">Close</button>
+      </div>
+
+      <div class="overflow-y-auto p-5">
+        <div class="space-y-2" data-project-map-target="layersPanel">
+          <p class="text-sm text-stone-500">Loading layers...</p>
+        </div>
+      </div>
+    </div>
+  </dialog>
+</section>
