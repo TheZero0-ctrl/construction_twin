@@ -7,6 +7,17 @@ require "tmpdir"
 
 class ProcessDatasetJob < ApplicationJob
   SHAPEFILE_ARCHIVE_EXTENSIONS = %w[.shp .shx .dbf .prj .cpg .sbn .sbx .qix .txt].freeze
+  FEATURE_TABLES = {
+    "buildings" => "buildings",
+    "terrain" => "terrains",
+    "roads" => "roads"
+  }.freeze
+  FEATURE_ASSOCIATIONS = {
+    "buildings" => :buildings,
+    "terrain" => :terrains,
+    "roads" => :roads
+  }.freeze
+  SAFE_SQL_IDENTIFIER = /\A[a-z][a-z0-9_]*\z/
 
   def perform(dataset_id)
     dataset = Dataset.find_by(id: dataset_id)
@@ -110,19 +121,19 @@ class ProcessDatasetJob < ApplicationJob
   end
 
   def move_staged_features!(dataset)
-    table = staging_table_name(dataset)
-    name_expr = column_expression(table, %w[name Name NAME])
-    height_expr = column_expression(table, %w[height Height HEIGHT elev ELEV z Z], cast: "numeric")
-    base_height_expr = column_expression(table, %w[base_height BaseHeight BASE_HEIGHT base_z BaseZ BASE_Z], cast: "numeric")
-    default_height = Dataset.default_height_for(dataset.layer_type)
-    target_table = feature_table_name_for(dataset.layer_type)
-    source_geom_expr = source_geometry_expression(dataset.layer_type)
-    source_geom_filter = source_geometry_filter(dataset.layer_type)
+    quoted_staging_table = quoted_staging_table_name(dataset)
+    quoted_target_table = quoted_feature_table_name(dataset.layer_type)
+    name_expr = column_expression_for(dataset, %w[name Name NAME])
+    height_expr = column_expression_for(dataset, %w[height Height HEIGHT elev ELEV z Z], cast: "numeric")
+    base_height_expr = column_expression_for(dataset, %w[base_height BaseHeight BASE_HEIGHT base_z BaseZ BASE_Z], cast: "numeric")
+    default_height = Float(Dataset.default_height_for(dataset.layer_type))
+    source_geom_expr = validated_source_geometry_expression(dataset.layer_type)
+    source_geom_filter = validated_source_geometry_filter(dataset.layer_type)
 
     connection = ActiveRecord::Base.connection
     now = Time.current
     insert_sql = <<~SQL
-      INSERT INTO #{connection.quote_table_name(target_table)} (project_id, dataset_id, name, height, base_height, geom, created_at, updated_at)
+      INSERT INTO #{quoted_target_table} (project_id, dataset_id, name, height, base_height, geom, created_at, updated_at)
       SELECT
         $1,
         $2,
@@ -139,13 +150,12 @@ class ProcessDatasetJob < ApplicationJob
         )::geometry(MultiPolygonZ, 4326),
         $3,
         $4
-      FROM #{connection.quote_table_name(table)}
+      FROM #{quoted_staging_table}
       WHERE geom IS NOT NULL
       AND ST_IsValid(geom)
       AND #{source_geom_filter}
     SQL
 
-    # brakeman:ignore[SQL] Safe: table/columns are constrained and quoted, values are bound parameters.
     connection.exec_insert(insert_sql, "Insert layer features from staged shapefile", [
       ActiveRecord::Relation::QueryAttribute.new("project_id", dataset.project_id.to_i, ActiveRecord::Type::Integer.new),
       ActiveRecord::Relation::QueryAttribute.new("dataset_id", dataset.id.to_i, ActiveRecord::Type::Integer.new),
@@ -156,33 +166,15 @@ class ProcessDatasetJob < ApplicationJob
   end
 
   def feature_table_name_for(layer_type)
-    case layer_type.to_s
-    when "buildings"
-      "buildings"
-    when "terrain"
-      "terrains"
-    when "roads"
-      "roads"
-    else
-      raise ArgumentError, "Unsupported layer type: #{layer_type}"
-    end
+    FEATURE_TABLES.fetch(validated_layer_type(layer_type))
   end
 
   def feature_association_for(layer_type)
-    case layer_type.to_s
-    when "buildings"
-      :buildings
-    when "terrain"
-      :terrains
-    when "roads"
-      :roads
-    else
-      raise ArgumentError, "Unsupported layer type: #{layer_type}"
-    end
+    FEATURE_ASSOCIATIONS.fetch(validated_layer_type(layer_type))
   end
 
   def source_geometry_filter(layer_type)
-    if layer_type.to_s == "roads"
+    if validated_layer_type(layer_type) == "roads"
       "GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON', 'LINESTRING', 'MULTILINESTRING')"
     else
       "GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON')"
@@ -190,7 +182,7 @@ class ProcessDatasetJob < ApplicationJob
   end
 
   def source_geometry_expression(layer_type)
-    return "geom" unless layer_type.to_s == "roads"
+    return "geom" unless validated_layer_type(layer_type) == "roads"
 
     <<~SQL.squish
       CASE
@@ -201,9 +193,30 @@ class ProcessDatasetJob < ApplicationJob
     SQL
   end
 
+  def quoted_feature_table_name(layer_type)
+    ActiveRecord::Base.connection.quote_table_name(validated_sql_identifier(feature_table_name_for(layer_type), label: "feature table"))
+  end
+
+  def quoted_staging_table_name(dataset)
+    ActiveRecord::Base.connection.quote_table_name(validated_staging_table_name(dataset))
+  end
+
+  def column_expression_for(dataset, candidates, cast: nil)
+    column_expression(validated_staging_table_name(dataset), candidates, cast: cast)
+  end
+
+  def validated_source_geometry_filter(layer_type)
+    source_geometry_filter(validated_layer_type(layer_type))
+  end
+
+  def validated_source_geometry_expression(layer_type)
+    source_geometry_expression(validated_layer_type(layer_type))
+  end
+
   def column_expression(table, candidates, cast: nil)
     conn = ActiveRecord::Base.connection
-    columns = conn.columns(table).map(&:name)
+    safe_table = validated_sql_identifier(table, label: "staging table")
+    columns = conn.columns(safe_table).map(&:name)
     selected = candidates.find { |candidate| columns.include?(candidate) }
     return "NULL" unless selected
 
@@ -227,6 +240,25 @@ class ProcessDatasetJob < ApplicationJob
 
   def staging_table_name(dataset)
     "dataset_import_#{dataset.id}"
+  end
+
+  def validated_staging_table_name(dataset)
+    validated_sql_identifier(staging_table_name(dataset), label: "staging table")
+  end
+
+  def validated_layer_type(layer_type)
+    FEATURE_TABLES.fetch(layer_type.to_s) do
+      raise ArgumentError, "Unsupported layer type: #{layer_type}"
+    end
+
+    layer_type.to_s
+  end
+
+  def validated_sql_identifier(value, label: "SQL identifier")
+    identifier = value.to_s
+    return identifier if identifier.match?(SAFE_SQL_IDENTIFIER)
+
+    raise ArgumentError, "Unsafe #{label}: #{value.inspect}"
   end
 
   def connection_config

@@ -3,27 +3,73 @@
     {
       "warning_type": "SQL Injection",
       "warning_code": 0,
-      "fingerprint": "9448576731f10625de6b7f1e8a11af942a89100e690be26fc620059abed8a17b",
+      "fingerprint": "4b1e8299f55dcc5cd81e17559770245877f0656f7cbf12cf86b5a59e322c0dac",
       "check_name": "SQL",
       "message": "Possible SQL injection",
       "file": "app/jobs/process_dataset_job.rb",
-      "line": 124,
+      "line": 159,
       "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
-      "code": "ActiveRecord::Base.connection.exec_insert(\"INSERT INTO buildings (project_id, dataset_id, name, height, geom, created_at, updated_at)\\nSELECT\\n  $1,\\n  $2,\\n  #{column_expression(staging_table_name(dataset), [\"name\", \"Name\", \"NAME\"])},\\n  #{column_expression(staging_table_name(dataset), [\"height\", \"Height\", \"HEIGHT\", \"elev\", \"ELEV\", \"z\", \"Z\"], :cast => \"numeric\")},\\n  ST_Multi(geom)::geometry(MultiPolygon, 4326),\\n  $3,\\n  $4\\nFROM #{ActiveRecord::Base.connection.quote_table_name(staging_table_name(dataset))}\\nWHERE geom IS NOT NULL\\nAND ST_IsValid(geom)\\nAND GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON')\\n\", \"Insert buildings from staged shapefile\", [ActiveRecord::Relation::QueryAttribute.new(\"project_id\", dataset.project_id.to_i, ActiveRecord::Type::Integer.new), ActiveRecord::Relation::QueryAttribute.new(\"dataset_id\", dataset.id.to_i, ActiveRecord::Type::Integer.new), ActiveRecord::Relation::QueryAttribute.new(\"created_at\", Time.current, ActiveRecord::Type::DateTime.new), ActiveRecord::Relation::QueryAttribute.new(\"updated_at\", Time.current, ActiveRecord::Type::DateTime.new)])",
+      "code": "ActiveRecord::Base.connection.exec_insert(\"INSERT INTO #{quoted_feature_table_name(dataset.layer_type)} (project_id, dataset_id, name, height, base_height, geom, created_at, updated_at)\\nSELECT\\n  $1,\\n  $2,\\n  #{column_expression_for(dataset, [\"name\", \"Name\", \"NAME\"])},\\n  GREATEST(COALESCE(#{column_expression_for(dataset, [\"height\", \"Height\", \"HEIGHT\", \"elev\", \"ELEV\", \"z\", \"Z\"], :cast => \"numeric\")}, #{Float(Dataset.default_height_for(dataset.layer_type))}), 0.1),\\n  GREATEST(COALESCE(#{column_expression_for(dataset, [\"base_height\", \"BaseHeight\", \"BASE_HEIGHT\", \"base_z\", \"BaseZ\", \"BASE_Z\"], :cast => \"numeric\")}, 0), 0),\\n  ST_Multi(\\n    ST_Translate(\\n      ST_Force3DZ(#{validated_source_geometry_expression(dataset.layer_type)}),\\n      0,\\n      0,\\n      GREATEST(COALESCE(#{column_expression_for(dataset, [\"base_height\", \"BaseHeight\", \"BASE_HEIGHT\", \"base_z\", \"BaseZ\", \"BASE_Z\"], :cast => \"numeric\")}, 0), 0)\\n    )\\n  )::geometry(MultiPolygonZ, 4326),\\n  $3,\\n  $4\\nFROM #{quoted_staging_table_name(dataset)}\\nWHERE geom IS NOT NULL\\nAND ST_IsValid(geom)\\nAND #{validated_source_geometry_filter(dataset.layer_type)}\\n\", \"Insert layer features from staged shapefile\", [ActiveRecord::Relation::QueryAttribute.new(\"project_id\", dataset.project_id.to_i, ActiveRecord::Type::Integer.new), ActiveRecord::Relation::QueryAttribute.new(\"dataset_id\", dataset.id.to_i, ActiveRecord::Type::Integer.new), ActiveRecord::Relation::QueryAttribute.new(\"created_at\", Time.current, ActiveRecord::Type::DateTime.new), ActiveRecord::Relation::QueryAttribute.new(\"updated_at\", Time.current, ActiveRecord::Type::DateTime.new)])",
       "render_path": null,
       "location": {
         "type": "method",
         "class": "ProcessDatasetJob",
-        "method": "move_staged_buildings!"
+        "method": "move_staged_features!"
       },
-      "user_input": "column_expression(staging_table_name(dataset), [\"name\", \"Name\", \"NAME\"])",
+      "user_input": "quoted_feature_table_name(dataset.layer_type)",
       "confidence": "Medium",
       "cwe_id": [
         89
       ],
-      "note": "False positive: dynamic identifiers come from trusted DB metadata and are quoted; runtime values are bound parameters."
+      "note": "False positive: target and staging tables are selected from allowlists and regex-validated identifiers, column names come from database metadata and are quoted, and runtime values are bound parameters."
+    },
+    {
+      "warning_type": "Command Injection",
+      "warning_code": 14,
+      "fingerprint": "8c33aaac436e9f618df7c059d775b84c522f75f3a885493afdd65ea793f3a2cc",
+      "check_name": "Execute",
+      "message": "Possible command injection",
+      "file": "app/services/tileset_exporter.rb",
+      "line": 174,
+      "link": "https://brakemanscanner.org/docs/warning_types/command_injection/",
+      "code": "Open3.capture3(\"docker\", \"run\", \"--rm\", \"--add-host\", \"host.docker.internal:host-gateway\", \"-v\", validated_volume_mapping(Rails.root.join(\"public\", \"tilesets\")), \"--network\", validated_docker_network_mode, *docker_env_args(docker_connection_config(connection_config)), validated_docker_image, \"--host\", validated_command_argument(docker_connection_config(connection_config).fetch(:host, \"localhost\"), :label => \"docker host\"), \"--port\", validated_port(docker_connection_config(connection_config).fetch(:port, \"5432\")), \"--dbname\", validated_command_argument(docker_connection_config(connection_config).fetch(:dbname, \"\"), :allow_blank => true, :label => \"database name\"), *if docker_connection_config(connection_config)[:user].present? then\n  [\"--username\", validated_command_argument(docker_connection_config(connection_config)[:user], :label => \"database user\")]\nelse\n  []\nend, \"--table\", validated_sql_identifier(table_name, :label => \"export table\"), \"--column\", \"geom_tile\", \"--attributecolumns\", \"id,name,height,base_height,layer_type\", \"--subdivision\", \"QUADTREE\", \"--output\", validated_container_output_path(\"/tilesets/#{output_dir.relative_path_from(Rails.root.join(\"public\", \"tilesets\"))}\"))",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "TilesetExporter",
+        "method": "run_pg2b3dm!"
+      },
+      "user_input": "output_dir.relative_path_from(Rails.root.join(\"public\", \"tilesets\"))",
+      "confidence": "Medium",
+      "cwe_id": [
+        77
+      ],
+      "note": "False positive: the docker command is executed with argument-array form, and every dynamic value is constrained by regex validation or fixed prefixes before it reaches Open3.capture3."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "efb9a14f32bd7a1040d6e25ef7be5b1d897b8ea813544cd540653fa3e67ae971",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/services/tileset_exporter.rb",
+      "line": 99,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "connection.execute(\"CREATE TABLE #{connection.quote_table_name(validated_sql_identifier(table_name, :label => \\\"export table\\\"))} AS\\nSELECT\\n  f.id,\\n  f.name,\\n  f.height,\\n  f.base_height,\\n  #{connection.quote(validated_layer_type)}::text AS layer_type,\\n  #{extrusion_sql} AS geom_tile\\nFROM #{connection.quote_table_name(validated_source_feature_table)} f\\nWHERE f.dataset_id = #{Integer(dataset.id)}\\nAND f.geom IS NOT NULL\\nAND ST_IsValid(f.geom)\\n\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "TilesetExporter",
+        "method": "create_export_table!"
+      },
+      "user_input": "extrusion_sql",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "False positive: the dynamic SQL is assembled from regex-validated identifiers, a quoted layer_type literal, integer-cast IDs, and a fixed geometry expression selected entirely by trusted layer type state."
     }
   ],
-  "updated": "2026-03-22 19:00:01 +0545",
+  "updated": "2026-03-30 22:43:30 +0545",
   "brakeman_version": "8.0.4"
 }
