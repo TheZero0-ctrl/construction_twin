@@ -67,10 +67,11 @@ jobs:
 
     env:
       RAILS_ENV: test
-      PGHOST: 127.0.0.1
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_TEST_NAME: open_construction_twin_test
 
     steps:
       - name: Install system packages
